@@ -9,7 +9,7 @@ import numpy as np
 import config
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-ererv= "sdsds"
+
 app = Flask(__name__)
 DB_PATH = config.DB_PATH
 
@@ -243,7 +243,7 @@ def correlacao():
         y = m * x + b, 
         #façamos a inclinação multiplicada pelo valor do ponto de dado mais o intercepto gerando nossa linha do grafico
         mode = 'lines',
-        nome = 'Linha de tendencia',
+        name = 'Linha de tendencia',
         line = dict(
             color = 'rgba(220, 53, 69, 1)',
             width = 4,
@@ -255,8 +255,8 @@ def correlacao():
             'text':f'<br><b>Correlação entre Selic e Inadimplencia</b><br><span style="font-size:16px">Coeficiente de Correlação: {correl:.2f}</span>',
             'y':0.95,
             'x':0.5,
-            'yanchor':'center',
-            'xanchor':'top'
+            'yanchor':'top',
+            'xanchor':'center'
         },
         xaxis_title = dict(
             text= 'Selic Média Mensal (%)',
@@ -284,7 +284,7 @@ def correlacao():
             xanchor = 'center',
             x = 0.5,
             bgcolor = 'rgba(0,0,0,0)',
-            borderwith = 0
+            borderwidth = 0
         ),
         margin = dict(l=60, r=60, t=120, b=60)
     )#Não toque em mim !!!!!!
@@ -311,7 +311,6 @@ def correlacao():
 if __name__ == '__main__':
     init_db()
     app.run(debug=True)
-
 
 
 
