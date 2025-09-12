@@ -89,7 +89,7 @@ def upload():
    
 @app.route('/consultar', methods=['POST','GET'])
 def consultar():
-    if request.method == "POST": #fui copiado ehhehe
+    if request.method == "POST":
         tabela = request.form.get('campo_tabela')
         if tabela not in ['inadimplencia','selic']:
             return jsonify({'Erro':'Tabela inválida'}),400
@@ -109,6 +109,204 @@ def consultar():
             <input type="submit" value="Consultar">
         </form>
     ''')
+
+@app.route('/graficos')
+def graficos():
+    with sqlite3.connect(DB_PATH) as conn:
+        inad_df = pd.read_sql_query('SELECT * FROM inadimplencia', conn)
+        selic_df = pd.read_sql_query('SELECT * FROM selic', conn)
+
+    fig1 = go.Figure()
+    fig1.add_trace(go.Scatter(
+        x = inad_df['mes'],
+        y = inad_df['inadimplencia'],
+        mode = 'lines+markers',
+        name = 'Inadimplencia'
+    ))
+    # 'ggplot2', 'seaborn', 'simple_white', 'plotly','plotly_white', 'plotly_dark', 'presentation', 'xgridoff','ygridoff', 'gridon', 'none'
+    fig1.update_layout(
+        title = 'Evolução da Inadimplencia',
+        xaxis_title = 'Mês',
+        yaxis_title = '%',
+        template = 'plotly_dark'
+    )
+
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(
+        x = selic_df['mes'],
+        y = selic_df['selic_diaria'],
+        mode = 'lines+markers',
+        name = 'Taxa Selic'
+    ))
+    fig2.update_layout(
+        title = 'Media Mensal da Selic',
+        xaxis_title = 'Mês',
+        yaxis_title = 'Taxa',
+        template = 'plotly_dark'
+    )
+
+    graph_html_1 = fig1.to_html(full_html=False, include_plotlyjs='cdn')
+    graph_html_2 = fig2.to_html(full_html=False, include_plotlyjs='False')
+
+    return render_template_string('''
+        <html>
+            <head>
+                <title> Eu to aqui! </title>
+                <style>
+                    .container{
+                        display:flex;
+                        justify-content:space-around;
+                    }
+                    .graph{
+                        width:48%;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Graficos Economicos</h1>
+                <div class="container">
+                    <div class="graph">{{ grafico1|safe }}</div>
+                    <div class="graph">{{ grafico2|safe }}</div>
+                </div>
+            </body>
+        </html>
+    ''', grafico1 = graph_html_1, grafico2 = graph_html_2)
+
+@app.route('/editar_inadimplencia', methods=['POST','GET'])
+def editar_inadimplencia():
+    if request.method == 'POST':
+        mes = request.form.get('campo_mes')
+        novo_valor = request.form.get('campo_valor')
+        try:
+            novo_valor = float(novo_valor)
+        except:
+            return jsonify({'mensagem':'Valor Invalido'})
+
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE inadimplencia SET inadimplencia = ? WHERE mes = ?", (novo_valor, mes))
+            conn.commit()
+        return jsonify({"mensagem":f"Valor atualizado com sucesso para o mes {mes}"})
+        
+    return render_template_string('''
+        <h1> Editar Inadimplencia </h1>
+        <form method="post" action="/editar_inadimplencia">
+            <label for="campo_mes">Mês (AAAA-MM)</label>
+            <input type="text" name="campo_mes"><br>
+                                  
+            <label for="campo_valor">Novo valor de Inadimplencia</label>
+            <input type="text" name="campo_valor"><br>
+
+            <input type="submit" value="Atualizar">
+        </form>
+    ''')
+
+@app.route('/correlacao')
+def correlacao():
+    with sqlite3.connect(DB_PATH) as conn:
+        inad_df = pd.read_sql_query("SELECT * FROM inadimplencia", conn)
+        selic_df = pd.read_sql_query("SELECT * FROM selic", conn)
+
+    merged = pd.merge(inad_df, selic_df, on='mes')
+    # calcula a correlação entre as duas colunas, ou seja, o coeficiente de correlaçao de person
+    # 1 é correlação positiva perfeita
+    # 0 é sem correlação
+    # -1 é correlação negativa perfeita
+    
+    correl = merged['inadimplencia'].corr(merged['selic_diaria'])
+
+    #regressão linear para a visualização
+    # o polifit encontra os coeficientes de 'm' (inclinação) e b (intercepto) da regra de regressão linear 
+    # Essa linha mostra a tendência geral: se a inadimplência sobe ou desce conforme a SELIC varia.
+
+    x = merged['selic_diaria']
+    y = merged['inadimplencia']
+
+    m, b = np.polyfit(x, y, 1)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x = x,
+        y = y,
+        mode = 'markers',
+        name = 'Inadimplencia X Selic',
+        marker = dict(
+            color = 'rgba(0, 123, 255, 0.8)',
+            size = 12,
+            line = dict(width = 2, color = 'white'),
+            symbol = 'circle'
+        ),
+        hovertemplate = 'SELIC: %{x:.2f}%<br>Inadimplencia: %{y:.2f}%<extra></extra>'
+    ))
+    fig.add_trace(go.Scatter(
+        x = x,
+        y = m * x + b, 
+        #façamos a inclinação multiplicada pelo valor do ponto de dado mais o intercepto gerando nossa linha do grafico
+        mode = 'lines',
+        nome = 'Linha de tendencia',
+        line = dict(
+            color = 'rgba(220, 53, 69, 1)',
+            width = 4,
+            dash = 'dot'
+        )
+    ))
+    fig.update_layout(
+        title = {
+            'text':f'<br><b>Correlação entre Selic e Inadimplencia</b><br><span style="font-size:16px">Coeficiente de Correlação: {correl:.2f}</span>',
+            'y':0.95,
+            'x':0.5,
+            'yanchor':'center',
+            'xanchor':'top'
+        },
+        xaxis_title = dict(
+            text= 'Selic Média Mensal (%)',
+            font=dict(size=12, color='gray')
+        ),
+        yaxis_title = dict(
+            text= 'Inadimplencia (%)',
+            font=dict(size=12, color='gray')
+        ),
+        xaxis = dict(
+            tickfont=dict(size=14, color='black'),
+            gridcolor = 'lightgray'
+        ),
+        yaxis = dict(
+            tickfont=dict(size=14, color='black'),
+            gridcolor = 'lightgray'
+        ),
+        plot_bgcolor = '#f8f9fa',
+        paper_bgcolor = 'white',
+        font = dict(size = 14, color = 'black'),
+        legend = dict(
+            orientation = 'h',
+            yanchor = 'bottom',
+            y = 1.05,
+            xanchor = 'center',
+            x = 0.5,
+            bgcolor = 'rgba(0,0,0,0)',
+            borderwith = 0
+        ),
+        margin = dict(l=60, r=60, t=120, b=60)
+    )#Não toque em mim !!!!!!
+    graph_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+    return render_template_string('''
+        <html>
+            <head>
+                <title>Correlação Selic vs Inadimplencia</title>
+                <style>
+                    body{background-color: #ffffff; color:#333;}
+                    h1{margin-top:40px;}
+                    .container{width:90%; margin: auto; text-align: center;}
+                </style>
+            </head>
+            <body>
+                <div class='container'>
+                    <h1>Correlação entre Selic e Inadimplencia</h1>
+                    <div>{{ grafico|safe }}</div>
+                </div>
+            </body>
+        </html>
+    ''', grafico = graph_html)
 
 if __name__ == '__main__':
     init_db()
