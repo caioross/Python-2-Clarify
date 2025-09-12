@@ -9,7 +9,7 @@ import numpy as np
 import config
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-
+ererv= "sdsds"
 app = Flask(__name__)
 DB_PATH = config.DB_PATH
 
@@ -113,6 +113,7 @@ def consultar():
 if __name__ == '__main__':
     init_db()
     app.run(debug=True)
+
 
 
 
