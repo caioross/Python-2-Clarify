@@ -132,7 +132,7 @@ def make_density_trace(df: pd.DataFrame, name: str) -> go.Densitymapbox:
 #---------------------- MAIN ------------------------------
 def main():
     #carregar e padronizar os dados!
-    ny = standardize_columns(pd.read_csv(f"{folder}{t_ny}}"))
+    ny = standardize_columns(pd.read_csv(f"{folder}{t_ny}"))
     rj = standardize_columns(pd.read_csv(f"{folder}{t_rj}"))
 
     #cria os quatro traces(ny pontos / ny calor / rio pontos / rio calor)
