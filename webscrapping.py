@@ -107,3 +107,48 @@ for pagina in range(1, paginaLimite + 1):
 
 df = pd.DataFrame(filmes)
 print(df.head())
+
+#vamos salvar em CSV
+df.to_csv(f'{pasta}{saidaCSV}', index=False, encoding='utf-8-sig', quotechar="'", quoting= 1)
+
+#agora vamos adicionar no banco de dados
+with sqlite3.connect(f'{pasta}{bancoDados}') as conn:
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS filmes(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            Titulo TEXT,
+            Direcao TEXT,        
+            Nota REAL,
+            Link TEXT UNIQUE,
+            Ano TEXT,
+            Categoria TEXT
+            )
+    ''')
+    for filme in filmes:
+        try:
+            cursor.execute('''
+                INSERT OR IGNORE INTO filmes (Titulo, Direcao, Nota, Link, Ano, Categoria) VALUES (?, ?, ?, ?, ?, ?)
+            ''',(
+                filme['Titulo'],
+                filme['Direcao'],
+                float(filme['Nota']) if filme['Nota'] != 'N/A' else None,
+                filme['Link'],
+                filme['Ano'],
+                filme['Categoria']
+            ))
+        except Exception as e:
+            print(f"Erro ao inserir o filme {filme['Titulo']} no banco de dados\n Erro: {e}")
+    conn.commit()
+termino = datetime.datetime.now()
+
+print("-----------------------------------------")
+print(" Dados Raspados com sucesso")
+print(f"\nAqrquivo CSV salvo em: {pasta}{saidaCSV}")
+print(f"\n Dados armazenados no banco de dados {bancoDados}")
+print(f"\nTarefa Iniciada em: {agora.strftime('%H:%M:%S')}")
+print(f"\nTarefa finalizada em: {termino.strftime('%H:%M:%S')}")
+print(f"\n♥ Obrigado por Usar o BotFilmes ♥")
+print("-----------------------------------------")
+
+
